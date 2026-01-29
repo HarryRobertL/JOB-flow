@@ -1,0 +1,78 @@
+/**
+ * Global Styles
+ * 
+ * Main CSS file for JobFlow frontend.
+ * GitHub-style dark theme with layered panels and JobFlow orange accent.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* GitHub-style dark theme – design tokens as CSS variables */
+:root {
+  --color-jobflow: #ff7a1a;
+  --color-blue-accent: #1f6feb;
+  --color-bg-body: #020617;
+  --color-bg-layer1: #050a1a;
+  --color-bg-layer2: #0b1220;
+  --color-border-subtle: #1e293b;
+  --color-text-main: #e5e7eb;
+  --color-text-muted: #9ca3af;
+}
+
+/* Responsive tables: horizontal scroll on small viewports (mobile polish) */
+@layer utilities {
+  .table-scroll {
+    @apply overflow-x-auto -mx-4 sm:mx-0;
+  }
+}
+
+@layer base {
+  html {
+    min-height: 100%;
+  }
+
+  body {
+    @apply min-h-screen text-text-primary;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #020617;
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(31, 111, 235, 0.08), transparent);
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+
+  /* Base typography using design system tokens */
+  h1 {
+    @apply text-3xl font-bold leading-tight tracking-tight text-text-primary;
+    /* pageTitle: 30px, bold, tight leading */
+  }
+
+  h2 {
+    @apply text-2xl font-semibold leading-tight text-text-primary;
+    /* sectionTitle: 24px, semibold, tight leading */
+  }
+
+  h3 {
+    @apply text-xl font-semibold leading-snug text-text-primary;
+    /* cardTitle: 20px, semibold, snug leading */
+  }
+
+  h4 {
+    @apply text-lg font-medium leading-normal text-text-primary;
+    /* smallHeading: 18px, medium, normal leading */
+  }
+
+  p {
+    @apply text-base font-normal leading-normal text-text-primary;
+    /* body: 16px, normal, normal leading */
+  }
+
+  small {
+    @apply text-sm font-normal leading-normal text-text-secondary;
+    /* small: 14px, normal, normal leading */
+  }
+}
+

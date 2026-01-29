@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup - AutoApplyer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+            padding: 2rem;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .logo {
+            max-width: 300px;
+            height: auto;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 0.5rem;
+            font-size: 1.5rem;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+        .message {
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            border-radius: 4px;
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #6ee7b7;
+        }
+        .message.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #fca5a5;
+        }
+        .section {
+            margin-bottom: 2rem;
+            padding-bottom: 2rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .section:last-child {
+            border-bottom: none;
+        }
+        .section h2 {
+            color: #1f2937;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        input[type="text"],
+        input[type="email"],
+        input[type="tel"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        input[type="checkbox"] {
+            width: auto;
+            margin-right: 0.5rem;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+        @media (max-width: 640px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="/static/autoapplyer-logo-typeface.png" alt="AutoApplyer" class="logo">
+        <h1>Setup</h1>
+        <p class="subtitle">Configure your profile and job search preferences</p>
+        
+        {% if message %}
+        <div class="message {% if 'Error' in message %}error{% endif %}">
+            {{ message }}
+        </div>
+        {% endif %}
+        
+        <form method="post" action="/setup">
+            <!-- Account Section -->
+            <div class="section">
+                <h2>Account Information</h2>
+                <div class="form-group">
+                    <label for="email">Email *</label>
+                    <input type="email" id="email" name="email" value="{{ account.email }}" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="first_name">First Name *</label>
+                        <input type="text" id="first_name" name="first_name" value="{{ account.first_name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Last Name *</label>
+                        <input type="text" id="last_name" name="last_name" value="{{ account.last_name }}" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone *</label>
+                    <input type="tel" id="phone" name="phone" value="{{ account.phone }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="location">Location *</label>
+                    <input type="text" id="location" name="location" value="{{ account.location }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="postcode">Postcode (optional)</label>
+                    <input type="text" id="postcode" name="postcode" value="{{ account.postcode or '' }}">
+                </div>
+            </div>
+            
+            <!-- Defaults Section -->
+            <div class="section">
+                <h2>Default Files</h2>
+                <div class="form-group">
+                    <label for="cv_path">CV Path *</label>
+                    <input type="text" id="cv_path" name="cv_path" value="{{ defaults.cv_path }}" required>
+                    <small style="color: #6b7280;">Full path to your CV PDF file</small>
+                </div>
+                <div class="form-group">
+                    <label for="cover_letter_template">Cover Letter Template Path *</label>
+                    <input type="text" id="cover_letter_template" name="cover_letter_template" value="{{ defaults.cover_letter_template }}" required>
+                    <small style="color: #6b7280;">Full path to your cover letter template file</small>
+                </div>
+            </div>
+            
+            <!-- Search Section -->
+            <div class="section">
+                <h2>Job Search</h2>
+                <div class="form-group">
+                    <label for="search_name">Search Name *</label>
+                    <input type="text" id="search_name" name="search_name" value="{{ search.name }}" required>
+                    <small style="color: #6b7280;">A unique identifier for this search</small>
+                </div>
+                <div class="form-group">
+                    <label for="platform">Platform *</label>
+                    <select id="platform" name="platform" required>
+                        <option value="indeed" {% if search.platform == 'indeed' %}selected{% endif %}>Indeed</option>
+                        <option value="greenhouse" {% if search.platform == 'greenhouse' %}selected{% endif %}>Greenhouse</option>
+                        <option value="lever" {% if search.platform == 'lever' %}selected{% endif %}>Lever</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="query">Job Query *</label>
+                    <input type="text" id="query" name="query" value="{{ search.query }}" required>
+                    <small style="color: #6b7280;">e.g., "Retail assistant", "Customer service"</small>
+                </div>
+                <div class="form-group">
+                    <label for="search_location">Location *</label>
+                    <input type="text" id="search_location" name="search_location" value="{{ search.location }}" required>
+                    <small style="color: #6b7280;">e.g., "Cardiff", "London"</small>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="radius_km">Radius (km) *</label>
+                        <input type="number" id="radius_km" name="radius_km" value="{{ search.radius_km }}" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="daily_cap">Daily Cap (optional)</label>
+                        <input type="number" id="daily_cap" name="daily_cap" value="{{ search.daily_cap or '' }}" min="1">
+                        <small style="color: #6b7280;">Maximum applications per day</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="easy_apply" value="true" {% if search.easy_apply %}checked{% endif %}>
+                        Easy Apply (Indeed only)
+                    </label>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button type="submit" class="btn btn-primary">Save Configuration</button>
+                <a href="/" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+

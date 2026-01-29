@@ -1,0 +1,142 @@
+# AutoApplyer AI - Configuration Template
+#
+# Copy this file to config.yaml and customize. The engine validates all fields;
+# invalid config fails fast with clear error messages.
+#
+# PILOT: One config.yaml per installation. Paths are relative to project root.
+# Logs: data/logs.csv | Artifacts: data/artifacts/ | Profiles: profiles/default/
+
+# ============================================================================
+# Account Information (required)
+# ============================================================================
+# Used to pre-fill application forms. All five fields below are required and
+# must be non-empty. Optional: postcode, city, address.
+#
+# PILOT: Safe to store here for single-claimant pilots; use env or secrets
+# for multi-tenant production.
+account:
+  email: "user@example.com"
+  first_name: "Harry"
+  last_name: "Lovell"
+  phone: "+44..."
+  location: "Cardiff, UK"
+  postcode: ""
+  city: ""
+  address: ""
+
+# ============================================================================
+# Default File Paths (required)
+# ============================================================================
+# CV and cover letter paths. Must exist or the engine will warn (and may fail
+# when uploading). Use absolute paths or paths relative to project root.
+defaults:
+  cv_path: "/path/to/cv.pdf"
+  cover_letter_template: "/path/to/cover_letter_template.md"
+
+# ============================================================================
+# Job Search Configuration (at least one search required)
+# ============================================================================
+# Each search: name (unique), platform, query, location, radius_km. Optional
+# per-search: daily_cap, per_site_cap, pause_between_apps_seconds, salary_min,
+# remote, easy_apply.
+#
+# Workday (experimental): use platform "workday" and set workday_base_url to the
+# full job board URL (e.g. https://<tenant>.wd1.myworkdayjobs.com/en-US/<tenant>_job).
+# query, location, radius_km are ignored but required; use placeholders if needed.
+#
+# PILOT – Safe and recommended:
+# - daily_cap 15–30 per search; per_site_cap ≤ daily_cap.
+# - pause_between_apps_seconds [5, 25]: min ≤ max, both positive. 5–25s
+#   reduces rate-limiting risk; under 5s is risky.
+# - limits.daily_apply_cap ≤ 200 (hard upper bound).
+searches:
+  - name: "retail_assistant_cardiff"
+    platform: "indeed"
+    query: "Retail assistant"
+    location: "Cardiff"
+    radius_km: 25
+    easy_apply: true
+    daily_cap: 30
+    per_site_cap: 15
+    pause_between_apps_seconds: [5, 25]
+    salary_min: 22000
+    remote: "hybrid"
+
+  # Workday (experimental): replace workday_base_url with your tenant's job board URL.
+  # Typical pattern: https://<tenant>.wd1.myworkdayjobs.com/en-US/<tenant>_job
+  - name: "workday_tenant_example"
+    platform: "workday"
+    query: "jobs"
+    location: "Remote"
+    radius_km: 0
+    workday_base_url: "https://example.wd1.myworkdayjobs.com/en-US/Careers"
+    daily_cap: 10
+    per_site_cap: 10
+    pause_between_apps_seconds: [8, 20]
+
+# ============================================================================
+# Global Application Limits
+# ============================================================================
+# Validated: daily_apply_cap 1–200; per_site_cap ≥ 0 and ≤ daily_apply_cap;
+# pause_between_apps_seconds [min, max] with min ≤ max, both positive;
+# run_timeout_minutes 1–480 (default 60).
+#
+# Caps: Before each application, the engine checks total applied < daily_apply_cap
+# and per-site applied < per_site_cap. If either would be exceeded, the run stops
+# gracefully (no further applications).
+#
+# Pause: After each successful application, the engine sleeps a random duration
+# in [min, max] seconds (with small jitter). Use [5, 25] for pilot to reduce
+# rate-limiting risk.
+#
+# Run timeout: If the run exceeds run_timeout_minutes, it stops, logs
+# "run timeout exceeded", and closes the browser. Prevents stuck or runaway runs.
+#
+# PILOT – Safe: daily_apply_cap 60, per_site_cap 40, pause [6, 18],
+# run_timeout_minutes 60.
+limits:
+  daily_apply_cap: 60
+  per_site_cap: 40
+  pause_between_apps_seconds: [6, 18]
+  retry_on_error: 2
+  run_timeout_minutes: 60
+
+# ============================================================================
+# Job Filtering
+# ============================================================================
+# Case-insensitive. Jobs match if any title or keyword matches. Empty lists =
+# no filtering.
+filters:
+  titles_include:
+    - "Retail assistant"
+    - "Customer service advisor"
+    - "Office administrator"
+  keywords_include:
+    - "retail assistant"
+    - "team member"
+    - "customer service"
+
+# ============================================================================
+# Optional: Career Sites, CV Map, Answers
+# ============================================================================
+# career_sites and cv_map are used by the server/frontend; the engine uses
+# defaults.cv_path and filters. answers pre-fills common form questions.
+career_sites:
+  include_domains:
+    - "greenhouse.io"
+    - "jobs.lever.co"
+    - "workdayjobs.com"
+    - "ashbyhq.com"
+    - "smartrecruiters.com"
+
+cv_map:
+  marketing: "/path/to/cv_marketing.pdf"
+  admin: "/path/to/cv_admin.pdf"
+  support: "/path/to/cv_support.pdf"
+
+answers:
+  work_authorisation: "Yes. UK citizen with right to work."
+  notice_period: "Immediate"
+  salary: "Open within market range"
+  relocation: "Yes if required"
+  sponsorship: "No sponsorship needed"
