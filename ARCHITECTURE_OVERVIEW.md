@@ -1,4 +1,4 @@
-# AutoApplyer AI - Architecture Overview
+# JobFlow (AutoApplyer) — Architecture Overview
 
 **Version**: 1.0  
 **Date**: 2025-01-15  
@@ -8,7 +8,7 @@
 
 ## System Overview
 
-AutoApplyer AI is a DWP-facing SaaS platform that automates Universal Credit job search and compliance for claimants and work coaches. The system uses browser automation (Playwright) to apply to jobs on platforms like Indeed, Greenhouse, and Lever, while providing dashboards for claimants, work coaches, and DWP administrators.
+JobFlow (AutoApplyer) is a DWP-facing SaaS platform that automates Universal Credit job search and compliance for claimants and work coaches. The system uses browser automation (Playwright) to apply to jobs on platforms like Indeed, Greenhouse, and Lever, while providing dashboards for claimants, work coaches, and DWP administrators.
 
 ---
 

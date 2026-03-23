@@ -1,6 +1,103 @@
-# AutoApplyer
+# JobFlow (AutoApplyer)
+
+[![CI](https://github.com/HarryRobertL/JOB-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/HarryRobertL/JOB-flow/actions/workflows/ci.yml)
+
+**Repository:** [github.com/HarryRobertL/JOB-flow](https://github.com/HarryRobertL/JOB-flow)
 
 A claimant-facing job search assistant that uses Playwright to drive a browser and automatically apply to suitable jobs on sites like Indeed, Greenhouse, and Lever. Designed for UK DWP claimants as a pilot-ready application that can run daily with minimal supervision and produces structured logs for work coach dashboards.
+
+## Live demo
+
+After you deploy the static SPA (for example [Netlify](https://netlify.com) via [`netlify.toml`](netlify.toml)) and the FastAPI backend (see [`DEPLOYMENT.md`](DEPLOYMENT.md)), add the public URL here so reviewers can try the app—for example `https://<your-site>.netlify.app`.
+
+## Screenshots
+
+Add PNG or WebP images under [`docs/screenshots/`](docs/screenshots/) and link them here. Example markdown once files exist:
+
+```markdown
+![Landing](docs/screenshots/landing.png)
+![Claimant dashboard](docs/screenshots/claimant-dashboard.png)
+```
+
+## System architecture
+
+```mermaid
+flowchart LR
+  subgraph Browser
+    SPA[React SPA / Vite]
+  end
+  subgraph API[FastAPI :8000]
+    Auth["/auth (session)"]
+    Rest["/api/*"]
+  end
+  subgraph Engine[Automation]
+    PW[Playwright Chromium]
+    AD[Indeed / Greenhouse / Lever adapters]
+  end
+  subgraph Store[Persistence]
+    DB[(Auth DB)]
+    CSV[logs.csv & artifacts]
+    CFG[config.yaml]
+  end
+  SPA --> Auth
+  SPA --> Rest
+  Rest --> DB
+  Rest --> CSV
+  Rest --> PW
+  PW --> AD
+  Rest --> CFG
+```
+
+For file-level detail and data flows, see [`ARCHITECTURE_OVERVIEW.md`](ARCHITECTURE_OVERVIEW.md).
+
+## Tech stack
+
+| Layer | Stack |
+|--------|--------|
+| **Claimant / staff UI** | React 18, TypeScript, Vite, React Router, Tailwind CSS |
+| **Testing (frontend)** | Vitest, Testing Library, jsdom |
+| **API & server** | Python 3.10+, FastAPI, Uvicorn, Pydantic |
+| **Data** | SQLAlchemy, Alembic, SQLite or Postgres (see deployment docs) |
+| **Automation** | Playwright (Chromium), platform adapters in `autoapply/adapters/` |
+| **Static hosting** | Netlify-ready SPA build (`npm run build` → `dist/`) |
+
+## Environment variables
+
+- **Frontend:** copy [`.env.example`](.env.example) to `.env.local` and set `VITE_API_BASE_URL` only if the API is not same-origin (local dev usually uses the Vite proxy in [`vite.config.ts`](vite.config.ts)).
+- **Engine:** use `config.example.yaml` → `config.yaml` (gitignored). Never commit real credentials.
+
+## Local development (full stack)
+
+**Terminal 1 — backend**
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
+playwright install chromium
+cp config.example.yaml config.yaml
+# edit config.yaml; ensure data/ and profiles/ are writable
+uvicorn autoapply.server:app --reload --port 8000
+```
+
+**Terminal 2 — frontend**
+
+```bash
+npm ci
+cp .env.example .env.local   # optional
+npm run dev
+```
+
+Open the URL Vite prints (typically `http://localhost:5173`). API routes under `/api` and `/auth` proxy to `http://localhost:8000` by default.
+
+```bash
+npm test          # Vitest
+npm run build     # production bundle
+```
+
+## Author & contribution
+
+**Harry Robert Lovell** — primary author of this repository: Playwright-based apply engine and adapters, FastAPI service (auth, APIs, health checks), React claimant and work-coach experiences (onboarding, dashboards, compliance-oriented UI), frontend test setup (Vitest), CI workflow, deployment notes, and documentation structure. Third-party libraries are used per `package.json` and `pyproject.toml`.
 
 ## Features
 
@@ -160,25 +257,16 @@ See `config.example.yaml` for a complete example.
 ## Project Structure
 
 ```
-autoapply/
-├── autoapply/          # Main package
-│   ├── cli.py         # Command-line interface
-│   ├── run.py         # Main engine logic
-│   ├── core/          # Core functionality
-│   │   ├── browser.py
-│   │   ├── storage.py
-│   │   ├── config.py
-│   │   ├── router.py
-│   │   ├── autofill.py
-│   │   └── tailor.py
-│   └── adapters/      # Platform adapters
-│       ├── indeed.py
-│       ├── greenhouse.py
-│       ├── lever.py
-│       └── workday.py # Experimental
-├── tests/             # Test suite
-├── ui/                # Placeholder for future UI
-├── pyproject.toml     # Package configuration
+├── src/                 # React SPA (Vite) — claimant & staff UI
+├── autoapply/           # Python package — FastAPI app, CLI, engine
+├── tests/               # pytest (API, engine, adapters)
+├── ui/                  # Legacy Jinja templates (optional paths)
+├── docs/                # Additional documentation & screenshot assets
+├── public/              # PWA icons, manifest, service worker
+├── package.json         # Frontend dependencies & scripts
+├── vite.config.ts
+├── vitest.config.ts
+├── pyproject.toml
 ├── config.example.yaml
 └── README.md
 ```
@@ -215,10 +303,9 @@ pip install -e .
 ### Future Development
 
 This is a pilot-ready application. Future enhancements planned:
-- Web UI for claimants
-- Dashboard for work coaches
-- Additional platform adapters (Workday, Ashby, SmartRecruiters)
-- Enhanced logging and analytics
+- Deeper work-coach analytics and exports
+- Additional platform adapters (Ashby, SmartRecruiters) beyond experimental Workday
+- Enhanced logging and observability for production operations
 
 ## Pilot Analytics
 
@@ -257,8 +344,16 @@ For DWP reviewers, a detailed technical note is available at [`docs/dwp_pilot_te
 
 ### Running Tests
 
+**Python (API & engine):**
+
 ```bash
 pytest
+```
+
+**React (Vitest):**
+
+```bash
+npm test
 ```
 
 To run **engine-related tests** only (config, caps, timeout, logging, adapters, storage):
