@@ -10,17 +10,23 @@ import * as React from "react"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { FormField, FormErrorSummary, type FormError } from "@/components/forms"
+import { FormField, FormErrorSummary, TagInput, type FormError } from "@/components/forms"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select } from "@/components/ui/select"
 import { OnboardingStepper } from "@/components/shared/OnboardingStepper"
 import { useAnalytics } from "@/lib/useAnalytics"
 import type { OnboardingCompletedEvent, OnboardingStepCompletedEvent } from "@/lib/analytics"
-import { apiPut, apiPost, getClaimantProfile } from "@/lib/apiClient"
+import { apiPost, getClaimantProfile, updateClaimantProfile } from "@/lib/apiClient"
 import { useToast } from "@/contexts/ToastContext"
 import { useAuth } from "@/contexts/AuthContext"
-import type { OnboardingStep, ProfileDraft, ProfileUpdatePayload } from "@/types/onboarding"
+import type {
+  ClaimantProfileResponse,
+  OnboardingStep,
+  ProfileDraft,
+  ProfileUpdatePayload,
+} from "@/types/onboarding"
 import {
   ONBOARDING_STEP_ORDER,
   ONBOARDING_STEP_LABELS,
@@ -35,6 +41,7 @@ const DEFAULT_DRAFT: ProfileDraft = {
   phone: "",
   postcode: "",
   location: "",
+  preferredContactTime: "",
   employmentStatus: "",
   yearsExperience: "",
   lastRoleTitle: "",
@@ -48,7 +55,7 @@ const DEFAULT_DRAFT: ProfileDraft = {
   minimumPay: undefined,
   automationMode: "review_first",
   dailyApplicationCap: 15,
-  allowedPlatforms: ["indeed", "greenhouse", "lever"],
+  allowedPlatforms: ["indeed", "greenhouse", "lever", "workday"],
   excludeKeywords: "",
   consentCheckbox: false,
 }
@@ -57,18 +64,23 @@ const JOB_TYPES = [
   "Retail", "Customer service", "Warehouse", "Admin", "Sales", "Receptionist",
   "Data entry", "Care", "Hospitality", "Driver", "Other",
 ]
+const AVAILABLE_PLATFORMS: ProfileDraft["allowedPlatforms"] = [
+  "indeed",
+  "greenhouse",
+  "lever",
+  "workday",
+]
+const CONTACT_TIMES = [
+  "Morning (9am-12pm)",
+  "Afternoon (12pm-5pm)",
+  "Evening (5pm-8pm)",
+  "Any time",
+]
 
 const REMOTE_OPTIONS: { value: ProfileDraft["remotePreference"]; label: string }[] = [
   { value: "any", label: "No preference" },
   { value: "mostly_in_person", label: "Mostly in person" },
   { value: "mostly_remote", label: "Mostly remote" },
-]
-
-const COMMUTE_OPTIONS = [
-  { value: 5, label: "Local (up to 5 miles)" },
-  { value: 10, label: "Up to 10 miles" },
-  { value: 25, label: "Up to 25 miles" },
-  { value: 50, label: "Up to 50 miles" },
 ]
 
 function draftToPayload(d: ProfileDraft): ProfileUpdatePayload {
@@ -87,10 +99,34 @@ function draftToPayload(d: ProfileDraft): ProfileUpdatePayload {
     maxCommuteDistance: d.maxCommuteKm,
     autoApplyEnabled: d.automationMode === "auto_apply",
     requireReview: d.automationMode === "review_first",
+    discoverOnly: d.automationMode === "review_first",
     dailyCap: d.dailyApplicationCap,
     cvPath: d.cvPath,
     coverLetterTemplate: d.coverLetterTemplate,
   }
+}
+
+function normalizeRemotePreference(
+  value: ClaimantProfileResponse["remotePreference"]
+): ProfileDraft["remotePreference"] {
+  if (value === "remote") return "mostly_remote"
+  if (value === "onsite") return "mostly_in_person"
+  return "any"
+}
+
+function getFirstIncompleteStep(d: ProfileDraft): OnboardingStep {
+  const aboutDone = Boolean(
+    d.firstName.trim() && d.lastName.trim() && d.email.trim() && d.postcode.trim()
+  )
+  if (!aboutDone) return "about"
+  const experienceDone = Boolean(d.noticePeriod && d.rightToWorkConfirmed)
+  if (!experienceDone) return "experience"
+  const preferencesDone = d.desiredJobTypes.length > 0
+  if (!preferencesDone) return "preferences"
+  const automationDone =
+    d.dailyApplicationCap >= 1 && d.dailyApplicationCap <= 200 && d.allowedPlatforms.length > 0
+  if (!automationDone) return "automation"
+  return "review"
 }
 
 export const OnboardingPage: React.FC = () => {
@@ -124,20 +160,41 @@ export const OnboardingPage: React.FC = () => {
         if (!cancelled) setIsLoadingProfile(false)
         return
       }
+      const hydrated: ProfileDraft = {
+        ...DEFAULT_DRAFT,
+        email: profile.email ?? DEFAULT_DRAFT.email,
+        firstName: profile.firstName ?? profile.first_name ?? DEFAULT_DRAFT.firstName,
+        lastName: profile.lastName ?? DEFAULT_DRAFT.lastName,
+        phone: profile.phone ?? DEFAULT_DRAFT.phone,
+        postcode: profile.postcode ?? DEFAULT_DRAFT.postcode,
+        location: profile.location ?? profile.city ?? DEFAULT_DRAFT.location,
+        minimumPay: profile.salaryMin ?? DEFAULT_DRAFT.minimumPay,
+        dailyApplicationCap: profile.dailyCap ?? DEFAULT_DRAFT.dailyApplicationCap,
+        remotePreference: normalizeRemotePreference(profile.remotePreference),
+        automationMode: profile.discoverOnly || profile.requireReview ? "review_first" : "auto_apply",
+        cvPath: profile.cvPath ?? DEFAULT_DRAFT.cvPath,
+        coverLetterTemplate: profile.coverLetterTemplate ?? DEFAULT_DRAFT.coverLetterTemplate,
+      }
+      if (profile.skippedOnboarding) {
+        navigate("/app/dashboard", { replace: true })
+        return
+      }
+      const inferred = getFirstIncompleteStep(hydrated)
+      const profileLooksComplete = inferred === "review"
+      if (profileLooksComplete) {
+        navigate("/app/dashboard", { replace: true })
+        return
+      }
       setDraft((prev) => ({
         ...prev,
-        email: (profile.email as string) ?? prev.email,
-        firstName: (profile.firstName as string) ?? prev.firstName,
-        lastName: (profile.lastName as string) ?? prev.lastName,
-        phone: (profile.phone as string) ?? prev.phone,
-        postcode: (profile.postcode as string) ?? prev.postcode,
-        location: (profile.location as string) ?? (profile.city as string) ?? prev.location,
+        ...hydrated,
       }))
+      setStep(inferred)
       setIsLoadingProfile(false)
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [navigate])
 
   React.useEffect(() => {
     if (user?.email && !draft.email) {
@@ -145,11 +202,25 @@ export const OnboardingPage: React.FC = () => {
     }
   }, [user?.email, draft.email])
 
+  React.useEffect(() => {
+    if (!draft.postcode || draft.locations.length > 0) return
+    const area = draft.postcode.trim().split(/\s+/)[0]
+    if (!area) return
+    setDraft((prev) =>
+      prev.locations.length > 0 ? prev : { ...prev, locations: [area.toUpperCase()] }
+    )
+  }, [draft.postcode, draft.locations.length])
+
   const stepIndex = ONBOARDING_STEP_ORDER.indexOf(step)
   const goToStep = (s: OnboardingStep) => {
     setStep(s)
     window.scrollTo({ top: 0, behavior: "smooth" })
   }
+
+  const autosaveDraft = React.useCallback(async () => {
+    const payload = draftToPayload(draft)
+    await updateClaimantProfile(payload)
+  }, [draft])
 
   const validateAbout = (): boolean => {
     const e: Record<string, string> = {}
@@ -184,6 +255,7 @@ export const OnboardingPage: React.FC = () => {
     const e: Record<string, string> = {}
     const cap = draft.dailyApplicationCap
     if (cap == null || cap < 1 || cap > 200) e.dailyApplicationCap = "Daily cap must be between 1 and 200"
+    if (!draft.allowedPlatforms.length) e.allowedPlatforms = "Select at least one platform"
     if (!draft.consentCheckbox) e.consentCheckbox = "You must agree to the terms before continuing"
     setErrors(e)
     setFormErrors(Object.entries(e).map(([field, message]) => ({ field, message, id: field })))
@@ -202,6 +274,18 @@ export const OnboardingPage: React.FC = () => {
 
   const handleNext = async () => {
     if (!runStepValidation()) return
+    try {
+      await autosaveDraft()
+    } catch (err) {
+      showToast({
+        title: "Could not autosave",
+        description:
+          err instanceof Error
+            ? err.message
+            : "We saved this step locally. You can still continue and save at the end.",
+        variant: "info",
+      })
+    }
     const ev: Omit<OnboardingStepCompletedEvent, "timestamp" | "sessionId"> = {
       event: "onboarding_step_completed",
       step,
@@ -223,7 +307,7 @@ export const OnboardingPage: React.FC = () => {
     setFormErrors([])
     try {
       const payload = draftToPayload(draft)
-      await apiPut<{ status: string }>("/api/claimant/profile", payload)
+      await updateClaimantProfile(payload)
       const durationSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000)
       const event: Omit<OnboardingCompletedEvent, "timestamp" | "sessionId"> = {
         event: "onboarding_completed",
@@ -246,7 +330,7 @@ export const OnboardingPage: React.FC = () => {
       } catch {
         // ignore if localStorage unavailable
       }
-      navigate("/app/dashboard?onboarding=completed", { replace: true })
+      navigate("/app/onboarding/confirmation", { replace: true, state: { formData: draft } })
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong. Please try again."
       setFormErrors([{ field: "submit", message: msg, id: "submit-error" }])
@@ -257,36 +341,68 @@ export const OnboardingPage: React.FC = () => {
     }
   }
 
-  const contextCopy = (): { title: string; body: string; preview?: string } => {
+  const contextCopy = (): {
+    title: string
+    body: string
+    preview?: string
+    coachPreview?: string[]
+  } => {
     switch (step) {
       case "about":
         return {
           title: "Why we ask this",
           body: "Your work coach uses your contact details and location to support you and match you to suitable roles. This information is kept secure.",
           preview: draft.firstName || draft.lastName ? `${draft.firstName} ${draft.lastName}`.trim() || "Your name" : undefined,
+          coachPreview: [
+            [draft.firstName, draft.lastName].filter(Boolean).join(" ") || "Name not provided yet",
+            draft.postcode ? `Postcode: ${draft.postcode}` : "Postcode not provided yet",
+            draft.preferredContactTime ? `Best contact time: ${draft.preferredContactTime}` : "No preferred contact time yet",
+          ],
         }
       case "experience":
         return {
           title: "Why we ask this",
           body: "Skills and availability help JobFlow target the right kinds of jobs and set realistic expectations with your work coach.",
           preview: draft.noticePeriod ? `Notice: ${draft.noticePeriod}` : undefined,
+          coachPreview: [
+            draft.employmentStatus ? `Employment status: ${draft.employmentStatus.replace(/_/g, " ")}` : "Employment status not set",
+            draft.noticePeriod ? `Notice period: ${draft.noticePeriod.replace(/_/g, " ")}` : "Notice period not set",
+            draft.skillsTags.length > 0 ? `Skills: ${draft.skillsTags.slice(0, 4).join(", ")}` : "No skills listed yet",
+          ],
         }
       case "preferences":
         return {
           title: "Why we ask this",
           body: "Job types and location steer which roles the system looks at. They are not a guarantee, but they keep your search focused.",
           preview: draft.desiredJobTypes?.length ? `${draft.desiredJobTypes.length} job type(s)` : undefined,
+          coachPreview: [
+            draft.desiredJobTypes.length
+              ? `Job types: ${draft.desiredJobTypes.slice(0, 3).join(", ")}`
+              : "No job types selected yet",
+            draft.locations.length ? `Locations: ${draft.locations.join(", ")}` : "No preferred locations yet",
+            `Commute: up to ${draft.maxCommuteKm} km`,
+          ],
         }
       case "automation":
         return {
           title: "Why we ask this",
           body: "You stay in control. Choose whether JobFlow only finds jobs for you to review, or can apply within your daily cap. You can change this in Settings anytime.",
           preview: draft.automationMode === "auto_apply" ? "Auto-apply on" : "Review first",
+          coachPreview: [
+            draft.automationMode === "auto_apply" ? "Mode: Auto-apply" : "Mode: Review first",
+            `Daily cap: ${draft.dailyApplicationCap}`,
+            `Platforms: ${draft.allowedPlatforms.join(", ")}`,
+          ],
         }
       case "review":
         return {
           title: "Ready to finish",
           body: "Your work coach will see a clear summary of your targets and activity. You can edit any section above before finishing.",
+          coachPreview: [
+            [draft.firstName, draft.lastName].filter(Boolean).join(" ") || "Name not complete",
+            draft.desiredJobTypes.length ? `${draft.desiredJobTypes.length} preferred role type(s)` : "No role types selected",
+            draft.automationMode === "auto_apply" ? "Auto-apply enabled" : "Review-first mode",
+          ],
         }
       default:
         return { title: "", body: "" }
@@ -328,14 +444,19 @@ export const OnboardingPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-text-primary sm:text-3xl">Get started with JobFlow</h1>
             <p className="mt-1 text-sm text-text-secondary">We’ll set up your profile and preferences in a few steps.</p>
           </div>
-          <button
-            type="button"
-            onClick={handleSkipForNow}
-            disabled={isSkipping}
-            className="text-sm text-text-secondary hover:text-text-primary underline focus:outline-none focus:ring-2 focus:ring-blueAccent focus:ring-offset-2 rounded px-1 self-start sm:mt-0.5 disabled:opacity-50"
-          >
-            {isSkipping ? "Skipping…" : "Skip for now"}
-          </button>
+          <div className="self-start sm:mt-0.5">
+            <button
+              type="button"
+              onClick={handleSkipForNow}
+              disabled={isSkipping}
+              className="text-sm text-text-secondary hover:text-text-primary underline focus:outline-none focus:ring-2 focus:ring-blueAccent focus:ring-offset-2 rounded px-1 disabled:opacity-50"
+            >
+              {isSkipping ? "Skipping…" : "Skip for now"}
+            </button>
+            <p className="mt-1 text-xs text-text-tertiary">
+              You can skip, but your dashboard will be limited until onboarding is complete.
+            </p>
+          </div>
         </header>
 
         <OnboardingStepper currentStep={step} className="mb-8" />
@@ -406,6 +527,27 @@ export const OnboardingPage: React.FC = () => {
                     placeholder="e.g. London"
                   />
                 </FormField>
+                <FormField
+                  label="Preferred contact time (optional)"
+                  id="preferredContactTime"
+                  description="Helps your work coach plan calls/messages."
+                >
+                  <Select
+                    value={draft.preferredContactTime ?? ""}
+                    onChange={(e) =>
+                      updateDraft({
+                        preferredContactTime: e.target.value || undefined,
+                      })
+                    }
+                  >
+                    <option value="">Select</option>
+                    {CONTACT_TIMES.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </Select>
+                </FormField>
               </div>
             )}
 
@@ -454,10 +596,11 @@ export const OnboardingPage: React.FC = () => {
                   />
                 </FormField>
                 <FormField label="Skills" id="skillsTags" description="Add one at a time and press Enter.">
-                  <SkillsTagInput
+                  <TagInput
                     value={draft.skillsTags}
                     onChange={(tags) => updateDraft({ skillsTags: tags })}
                     placeholder="Type a skill and press Enter"
+                    ariaLabel="Add a skill"
                   />
                 </FormField>
                 <FormField label="Notice period" id="noticePeriod" required error={errors.noticePeriod}>
@@ -494,11 +637,16 @@ export const OnboardingPage: React.FC = () => {
 
             {step === "preferences" && (
               <div className="space-y-4">
-                <FormField label="Preferred location (optional)" id="locations" description="Town or area. We use your postcode too.">
-                  <Input
-                    value={draft.locations?.[0] ?? ""}
-                    onChange={(e) => updateDraft({ locations: e.target.value.trim() ? [e.target.value.trim()] : [] })}
-                    placeholder="e.g. London"
+                <FormField
+                  label="Locations"
+                  id="locations"
+                  description="Add one or more areas (e.g. Leeds, Bradford, LS1)."
+                >
+                  <TagInput
+                    value={draft.locations}
+                    onChange={(tags) => updateDraft({ locations: tags })}
+                    placeholder="Type a location and press Enter"
+                    ariaLabel="Add preferred location"
                   />
                 </FormField>
                 <FormField label="Job types you’re interested in" id="desiredJobTypes" required error={errors.desiredJobTypes} description="Select all that apply. This steers which roles JobFlow looks at, not a guarantee.">
@@ -521,16 +669,46 @@ export const OnboardingPage: React.FC = () => {
                       </label>
                     ))}
                   </div>
+                  <div className="pt-2">
+                    <TagInput
+                      value={draft.desiredJobTypes.filter((x) => !JOB_TYPES.includes(x))}
+                      onChange={(customTags) => {
+                        const predefined = draft.desiredJobTypes.filter((x) => JOB_TYPES.includes(x))
+                        updateDraft({ desiredJobTypes: [...predefined, ...customTags] })
+                      }}
+                      placeholder="Add custom job types (optional)"
+                      ariaLabel="Add custom job type"
+                    />
+                  </div>
                 </FormField>
-                <FormField label="Maximum commute" id="maxCommuteKm">
-                  <Select
-                    value={String(draft.maxCommuteKm)}
-                    onChange={(e) => updateDraft({ maxCommuteKm: Number(e.target.value) })}
-                  >
-                    {COMMUTE_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </Select>
+                <FormField
+                  label="Maximum commute"
+                  id="maxCommuteKm"
+                  description={
+                    draft.maxCommuteKm <= 8
+                      ? "Local area"
+                      : draft.maxCommuteKm <= 16
+                        ? "Up to 10 miles"
+                        : draft.maxCommuteKm <= 40
+                          ? "Up to 25 miles"
+                          : "Wider search area"
+                  }
+                >
+                  <div className="space-y-2">
+                    <input
+                      id="maxCommuteKm"
+                      type="range"
+                      min={2}
+                      max={80}
+                      step={1}
+                      value={draft.maxCommuteKm}
+                      onChange={(e) => updateDraft({ maxCommuteKm: Number(e.target.value) })}
+                      className="w-full accent-primary-500"
+                    />
+                    <p className="text-xs text-text-secondary">
+                      Up to {draft.maxCommuteKm} km ({Math.round(draft.maxCommuteKm * 0.621)} miles)
+                    </p>
+                  </div>
                 </FormField>
                 <FormField label="Remote preference" id="remotePreference">
                   <div className="space-y-2">
@@ -550,13 +728,20 @@ export const OnboardingPage: React.FC = () => {
                   </div>
                 </FormField>
                 <FormField label="Minimum pay (optional)" id="minimumPay" description="In £ per year. Used to steer job matches.">
-                  <Input
-                    type="number"
-                    min={0}
-                    value={draft.minimumPay ?? ""}
-                    onChange={(e) => updateDraft({ minimumPay: e.target.value ? Number(e.target.value) : undefined })}
-                    placeholder="e.g. 22000"
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={draft.minimumPay ?? ""}
+                      onChange={(e) => updateDraft({ minimumPay: e.target.value ? Number(e.target.value) : undefined })}
+                      placeholder="e.g. 22000"
+                    />
+                    {draft.minimumPay ? (
+                      <p className="text-xs text-text-secondary">
+                        Approx. £{(draft.minimumPay / 52 / 37.5).toFixed(2)} per hour (based on 37.5h/week)
+                      </p>
+                    ) : null}
+                  </div>
                 </FormField>
               </div>
             )}
@@ -596,17 +781,38 @@ export const OnboardingPage: React.FC = () => {
                   </div>
                 </FormField>
                 <FormField label="Daily application cap" id="dailyApplicationCap" required error={errors.dailyApplicationCap} description="Maximum applications per day (1–200).">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={200}
-                    value={draft.dailyApplicationCap}
-                    onChange={(e) => updateDraft({ dailyApplicationCap: Number(e.target.value) || 15 })}
-                  />
+                  <div className="space-y-2">
+                    <input
+                      id="dailyApplicationCap"
+                      type="range"
+                      min={1}
+                      max={200}
+                      step={1}
+                      value={draft.dailyApplicationCap}
+                      onChange={(e) => updateDraft({ dailyApplicationCap: Number(e.target.value) || 15 })}
+                      className="w-full accent-primary-500"
+                    />
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={draft.dailyApplicationCap}
+                        onChange={(e) => updateDraft({ dailyApplicationCap: Number(e.target.value) || 15 })}
+                        className="max-w-32"
+                      />
+                      <span className="text-xs text-text-secondary">applications/day</span>
+                    </div>
+                  </div>
                 </FormField>
-                <FormField label="Job boards to use" id="allowedPlatforms" description="Where JobFlow looks for roles.">
+                <FormField
+                  label="Job boards to use"
+                  id="allowedPlatforms"
+                  error={errors.allowedPlatforms}
+                  description="Where JobFlow looks for roles."
+                >
                   <div className="flex flex-wrap gap-2">
-                    {["indeed", "greenhouse", "lever"].map((p) => (
+                    {AVAILABLE_PLATFORMS.map((p) => (
                       <label key={p} className="inline-flex items-center gap-2 rounded-md border border-border-default px-3 py-2 cursor-pointer hover:bg-surface-alt">
                         <input
                           type="checkbox"
@@ -625,12 +831,35 @@ export const OnboardingPage: React.FC = () => {
                   </div>
                 </FormField>
                 <FormField label="Keywords to avoid (optional)" id="excludeKeywords" description="Comma-separated words or phrases.">
-                  <Input
+                  <Textarea
                     value={draft.excludeKeywords}
                     onChange={(e) => updateDraft({ excludeKeywords: e.target.value })}
                     placeholder="e.g. commission only, unpaid"
+                    rows={3}
                   />
                 </FormField>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label="CV path (optional)" id="cvPath" description="Used by automation forms.">
+                    <Input
+                      value={draft.cvPath ?? ""}
+                      onChange={(e) => updateDraft({ cvPath: e.target.value || undefined })}
+                      placeholder="/path/to/cv.pdf"
+                    />
+                  </FormField>
+                  <FormField
+                    label="Cover letter template (optional)"
+                    id="coverLetterTemplate"
+                    description="Markdown/text template file path."
+                  >
+                    <Input
+                      value={draft.coverLetterTemplate ?? ""}
+                      onChange={(e) =>
+                        updateDraft({ coverLetterTemplate: e.target.value || undefined })
+                      }
+                      placeholder="/path/to/cover_letter_template.md"
+                    />
+                  </FormField>
+                </div>
                 <div className="rounded-lg border border-border-default bg-surface-alt p-4 space-y-2">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
@@ -698,50 +927,14 @@ export const OnboardingPage: React.FC = () => {
             Your work coach will see: {ctx.preview}
           </p>
         )}
+        {ctx.coachPreview && ctx.coachPreview.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs text-text-tertiary border-t border-border-default pt-3 list-disc pl-4">
+            {ctx.coachPreview.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
       </aside>
-    </div>
-  )
-}
-
-function SkillsTagInput({
-  value,
-  onChange,
-  placeholder,
-}: {
-  value: string[]
-  onChange: (tags: string[]) => void
-  placeholder?: string
-}) {
-  const [input, setInput] = React.useState("")
-  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault()
-      const t = input.trim()
-      if (t && !value.includes(t)) onChange([...value, t])
-      setInput("")
-    }
-  }
-  const remove = (tag: string) => onChange(value.filter((t) => t !== tag))
-  return (
-    <div className="rounded-md border border-border-default bg-surface-DEFAULT px-3 py-2 flex flex-wrap gap-2">
-      {value.map((t) => (
-        <span
-          key={t}
-          className="inline-flex items-center gap-1 rounded bg-primary-500/20 text-primary-700 dark:text-primary-300 px-2 py-0.5 text-sm"
-        >
-          {t}
-          <button type="button" onClick={() => remove(t)} className="hover:text-error-600" aria-label={`Remove ${t}`}>×</button>
-        </span>
-      ))}
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm py-1"
-        aria-label="Add skill"
-      />
     </div>
   )
 }
@@ -754,7 +947,12 @@ function ReviewStep({ draft, onEdit }: { draft: ProfileDraft; onEdit: (s: Onboar
         step="about"
         onEdit={onEdit}
         summary={[draft.firstName, draft.lastName].filter(Boolean).join(" ") || "—"}
-        details={[draft.email, draft.phone, draft.postcode].filter(Boolean).join(" · ") || "—"}
+        details={[
+          draft.email,
+          draft.phone,
+          draft.postcode,
+          draft.preferredContactTime ? `Contact: ${draft.preferredContactTime}` : null,
+        ].filter(Boolean).join(" · ") || "—"}
       />
       <ReviewBlock
         title="Experience and skills"
@@ -770,7 +968,7 @@ function ReviewStep({ draft, onEdit }: { draft: ProfileDraft; onEdit: (s: Onboar
         summary={draft.desiredJobTypes.length ? `${draft.desiredJobTypes.length} type(s)` : "—"}
         details={[
           draft.remotePreference.replace("_", " "),
-          `Up to ${draft.maxCommuteKm} miles`,
+          `Up to ${draft.maxCommuteKm} km (${Math.round(draft.maxCommuteKm * 0.621)} miles)`,
           draft.minimumPay ? `Min £${draft.minimumPay}` : null,
         ].filter(Boolean).join(" · ") || "—"}
       />

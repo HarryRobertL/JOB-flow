@@ -8,6 +8,7 @@
 
 import * as React from "react"
 import { apiPost, apiGet, getClaimantProfile } from "@/lib/apiClient"
+import type { ClaimantProfileResponse } from "@/types/onboarding"
 
 export type Role = "claimant" | "coach" | "admin"
 
@@ -20,7 +21,7 @@ export interface User {
   hasCompletedOnboarding?: boolean
 }
 
-function isProfileComplete(profile: Record<string, unknown> | null): boolean {
+export function isProfileComplete(profile: ClaimantProfileResponse | null): boolean {
   if (!profile || typeof profile !== "object") return false
   if (profile.skippedOnboarding === true) return true
   const fn = profile.firstName ?? profile.first_name

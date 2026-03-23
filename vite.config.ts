@@ -12,6 +12,8 @@ export default defineConfig({
   },
   // Proxy API requests to FastAPI server
   server: {
+    host: true,
+    allowedHosts: ['.ngrok-free.app'],
     proxy: {
       '/auth': {
         target: 'http://localhost:8000',

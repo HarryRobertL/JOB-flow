@@ -69,7 +69,7 @@ export function LandingPage() {
               <img
                 src="/logo-logo.png"
                 alt="JobFlow"
-                className="h-8 w-8 object-contain"
+                className="h-[65px] w-[92px] object-contain"
               />
             </div>
             <Link

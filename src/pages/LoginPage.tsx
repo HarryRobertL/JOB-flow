@@ -18,6 +18,19 @@ import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/
 import { AlertCircle } from "lucide-react"
 import type { User } from "@/contexts/AuthContext"
 
+export function getRedirectPathForUser(u: User): string {
+  switch (u.role) {
+    case "claimant":
+      return u.hasCompletedOnboarding ? "/app/dashboard" : "/app/onboarding"
+    case "coach":
+      return "/staff/work-coach"
+    case "admin":
+      return "/staff/dwp"
+    default:
+      return "/login"
+  }
+}
+
 export function LoginPage() {
   const [email, setEmail] = React.useState("")
   const [password, setPassword] = React.useState("")
@@ -29,20 +42,7 @@ export function LoginPage() {
 
   const redirectForUser = React.useCallback(
     (u: User) => {
-      let targetPath: string
-      switch (u.role) {
-        case "claimant":
-          targetPath = u.hasCompletedOnboarding ? "/app/dashboard" : "/app/onboarding"
-          break
-        case "coach":
-          targetPath = "/staff/work-coach"
-          break
-        case "admin":
-          targetPath = "/staff/dwp"
-          break
-        default:
-          targetPath = "/login"
-      }
+      const targetPath = getRedirectPathForUser(u)
       const ev: Omit<LoginRedirectEvent, "timestamp" | "sessionId"> = {
         event: "login_redirect",
         role: u.role,

@@ -6,4 +6,5 @@
 
 export { FormField, type FormFieldProps } from "./FormField"
 export { FormErrorSummary, type FormError, type FormErrorSummaryProps } from "./FormErrorSummary"
+export { TagInput, type TagInputProps } from "./TagInput"
 

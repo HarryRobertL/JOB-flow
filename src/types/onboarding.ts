@@ -7,6 +7,8 @@
 
 export type OnboardingStep = "about" | "experience" | "preferences" | "automation" | "review"
 
+export type AutomationPlatform = "indeed" | "greenhouse" | "lever" | "workday"
+
 /** Payload shape for PUT /api/claimant/profile (camelCase as sent to backend) */
 export interface ProfileUpdatePayload {
   email?: string
@@ -24,9 +26,32 @@ export interface ProfileUpdatePayload {
   maxCommuteDistance?: number
   autoApplyEnabled?: boolean
   dailyCap?: number
+  discoverOnly?: boolean
   requireReview?: boolean
   cvPath?: string
   coverLetterTemplate?: string
+}
+
+/** Shape returned by GET /api/claimant/profile */
+export interface ClaimantProfileResponse {
+  skippedOnboarding?: boolean
+  first_name?: string
+  firstName?: string
+  lastName?: string
+  email?: string
+  phone?: string
+  location?: string
+  postcode?: string
+  city?: string
+  address?: string
+  cvPath?: string
+  coverLetterTemplate?: string
+  discoverOnly?: boolean
+  requireReview?: boolean
+  requiredApplicationsPerWeek?: number
+  dailyCap?: number
+  remotePreference?: string
+  salaryMin?: number
 }
 
 /**
@@ -61,7 +86,7 @@ export interface ProfileDraft {
   // Step 4: Automation settings
   automationMode: "review_first" | "auto_apply"
   dailyApplicationCap: number
-  allowedPlatforms: string[]
+  allowedPlatforms: AutomationPlatform[]
   excludeKeywords: string
   consentCheckbox: boolean
 

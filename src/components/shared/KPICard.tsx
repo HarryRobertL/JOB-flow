@@ -62,8 +62,8 @@ export const KPICard: React.FC<KPICardProps> = ({
 
   return (
     <Card className={cn(getVariantStyles())} role="article" aria-label={`${title}: ${formatValue(value)}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-text-secondary">{title}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 text-black">
+        <CardTitle className="text-sm font-medium text-black">{title}</CardTitle>
         {icon && <div className="text-neutral-500" aria-hidden="true">{icon}</div>}
       </CardHeader>
       <CardContent>

@@ -11,6 +11,7 @@ import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { OnboardingStep } from "@/types/onboarding"
 import { ONBOARDING_STEP_ORDER, ONBOARDING_STEP_LABELS } from "@/types/onboarding"
+import { Progress } from "@/components/ui/progress"
 
 export interface OnboardingStepperProps {
   currentStep: OnboardingStep
@@ -22,12 +23,18 @@ const stepIndex = (s: OnboardingStep): number => ONBOARDING_STEP_ORDER.indexOf(s
 export const OnboardingStepper: React.FC<OnboardingStepperProps> = ({ currentStep, className }) => {
   const currentIdx = stepIndex(currentStep)
   const total = ONBOARDING_STEP_ORDER.length
+  const progress = ((currentIdx + 1) / total) * 100
 
   return (
     <nav
       aria-label="Onboarding progress"
       className={cn("w-full", className)}
     >
+      <Progress
+        value={progress}
+        className="mb-4"
+        aria-label={`Onboarding progress ${Math.round(progress)} percent`}
+      />
       <ol
         className="flex flex-wrap items-center gap-2"
         role="list"
@@ -63,6 +70,9 @@ export const OnboardingStepper: React.FC<OnboardingStepperProps> = ({ currentSte
                 )}
               >
                 {label}
+              </span>
+              <span className="sr-only">
+                {isCurrent ? "Current step" : isCompleted ? "Completed step" : "Upcoming step"}
               </span>
               {idx < total - 1 && (
                 <span

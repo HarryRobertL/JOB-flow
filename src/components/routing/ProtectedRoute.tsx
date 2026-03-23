@@ -18,6 +18,7 @@ export interface ProtectedRouteProps {
 }
 
 const ONBOARDING_PATH = "/app/onboarding"
+const ONBOARDING_CONFIRMATION_PATH = "/app/onboarding/confirmation"
 
 export function ProtectedRoute({
   children,
@@ -50,7 +51,8 @@ export function ProtectedRoute({
     user.role === "claimant" &&
     user.hasCompletedOnboarding === false &&
     pathname.startsWith("/app/") &&
-    pathname !== ONBOARDING_PATH
+    pathname !== ONBOARDING_PATH &&
+    pathname !== ONBOARDING_CONFIRMATION_PATH
   ) {
     return <Navigate to={ONBOARDING_PATH} replace />
   }

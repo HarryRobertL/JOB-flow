@@ -42,6 +42,7 @@ export function ClaimantDashboardContainer() {
   const [lastRunWasDiscoverOnly, setLastRunWasDiscoverOnly] = React.useState(false)
   const [currentRunIsDiscoverOnly, setCurrentRunIsDiscoverOnly] = React.useState(false)
   const pollingIntervalRef = React.useRef<number | null>(null)
+  const welcomeBannerCheckedRef = React.useRef(false)
 
   // Fetch profile to get discoverOnly setting
   const fetchProfile = React.useCallback(async () => {
@@ -315,6 +316,9 @@ export function ClaimantDashboardContainer() {
 
   // Detect onboarding-completed flag and show welcome banner once
   React.useEffect(() => {
+    if (welcomeBannerCheckedRef.current) return
+    welcomeBannerCheckedRef.current = true
+
     const fromQuery = searchParams.get("onboarding") === "completed"
     let fromStorage = false
     try {
@@ -322,6 +326,7 @@ export function ClaimantDashboardContainer() {
     } catch {
       // ignore
     }
+    
     if (fromQuery || fromStorage) {
       try {
         localStorage.removeItem(WELCOME_BANNER_STORAGE_KEY)
@@ -329,7 +334,9 @@ export function ClaimantDashboardContainer() {
         // ignore
       }
       setShowWelcomeBanner(true)
-      trackEvent({ event: "welcome_banner_shown" }).catch(() => {})
+      Promise.resolve(trackEvent({ event: "welcome_banner_shown" })).catch(() => {})
+      
+      // Only navigate if query param exists (to remove it from URL)
       if (fromQuery) {
         navigate("/app/dashboard", { replace: true })
       }
@@ -411,7 +418,7 @@ export function ClaimantDashboardContainer() {
   }, [])
 
   const handleWelcomeRunClick = React.useCallback(() => {
-    trackEvent({ event: "welcome_run_clicked" }).catch(() => {})
+    Promise.resolve(trackEvent({ event: "welcome_run_clicked" })).catch(() => {})
     handleStartRun(true)
   }, [handleStartRun])
 
