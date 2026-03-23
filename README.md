@@ -8,16 +8,28 @@ A claimant-facing job search assistant that uses Playwright to drive a browser a
 
 ## Live demo
 
-After you deploy the static SPA (for example [Netlify](https://netlify.com) via [`netlify.toml`](netlify.toml)) and the FastAPI backend (see [`DEPLOYMENT.md`](DEPLOYMENT.md)), add the public URL here so reviewers can try the app—for example `https://<your-site>.netlify.app`.
+**Your public SPA URL (edit this row after you deploy):**
+
+| | |
+|--|--|
+| **Live app** | _Add your URL here, e.g._ `https://your-site.netlify.app` |
+
+### How to deploy and fill in the URL
+
+1. **Backend (FastAPI)** — Run the API on a host you control (VPS, [Railway](https://railway.app), Fly.io, etc.). Follow **[`DEPLOYMENT.md`](DEPLOYMENT.md)** for environment variables, database, and process command (typically `uvicorn autoapply.server:app --host 0.0.0.0 --port $PORT`). Note the public **API base URL** (e.g. `https://api.yourdomain.com`).
+2. **Frontend (static SPA)** — On [Netlify](https://netlify.com): New site from Git → pick this repo → build **`npm run build`**, publish directory **`dist/`** (matches [`netlify.toml`](netlify.toml)). If the API is on another domain, add a Netlify **environment variable** `VITE_API_BASE_URL` with that API origin (no trailing slash), then trigger a new deploy.
+3. **CORS and cookies** — The browser must be allowed to call your API from your Netlify domain. Configure CORS and session cookie settings on the FastAPI app per **`DEPLOYMENT.md`** so sign-in works from the live SPA origin.
+4. **README** — Replace the placeholder in the table above with your real Netlify (or other) URL and commit.
 
 ## Screenshots
 
-Add PNG or WebP images under [`docs/screenshots/`](docs/screenshots/) and link them here. Example markdown once files exist:
+Captured at **1280×800** (full-page where noted). Sources: production preview build (landing), dev server with API (sign-in and claimant dashboard).
 
-```markdown
-![Landing](docs/screenshots/landing.png)
-![Claimant dashboard](docs/screenshots/claimant-dashboard.png)
-```
+![Landing page — JobFlow marketing home](docs/screenshots/landing.png)
+
+![Sign in — role-based demo accounts](docs/screenshots/login.png)
+
+![Claimant dashboard — weekly target, automation run, exports](docs/screenshots/claimant-dashboard.png)
 
 ## System architecture
 

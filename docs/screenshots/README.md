@@ -1,5 +1,11 @@
 # Screenshots
 
-Add PNG or WebP captures of the running application here (for example `landing.png`, `claimant-dashboard.png`, `onboarding.png`) and embed them from the root [`README.md`](../../README.md) so visitors see visual proof of the product.
+Committed assets used by the root [`README.md`](../../README.md):
 
-Recommended: capture at a consistent viewport width (for example 1280px) after `npm run dev` with the FastAPI server running.
+| File | Description |
+|------|-------------|
+| `landing.png` | Marketing landing (`/`) from `npm run preview` |
+| `login.png` | Sign-in with demo credentials |
+| `claimant-dashboard.png` | Claimant home (`/app/dashboard`) with API running |
+
+To refresh: use a 1280×800 viewport; for authenticated views run **`uvicorn`** on `:8000` and **`npm run dev`** so `/auth` proxies correctly.
