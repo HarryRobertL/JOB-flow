@@ -56,6 +56,38 @@ from autoapply.evidence import (
 app = FastAPI(title="AutoApplyer Local UI")
 
 
+def _parse_cors_origins() -> List[str]:
+    """Comma-separated list for split deploys (e.g. Netlify SPA calling this API)."""
+    raw = os.environ.get("AUTOAPPLYER_CORS_ORIGINS", "").strip()
+    if not raw:
+        return []
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+CORS_ALLOW_ORIGINS: List[str] = _parse_cors_origins()
+if CORS_ALLOW_ORIGINS:
+    from starlette.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ALLOW_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+
+def session_cookie_flags() -> tuple[Literal["lax", "none"], bool]:
+    """SameSite and Secure flags for session cookie (cross-origin needs SameSite=None + Secure)."""
+    explicit = os.environ.get("AUTOAPPLYER_SESSION_SAMESITE", "").strip().lower()
+    if explicit == "none":
+        return "none", True
+    if CORS_ALLOW_ORIGINS:
+        return "none", True
+    secure = os.environ.get("AUTOAPPLYER_SECURE_COOKIES", "").lower() in ("1", "true", "yes")
+    return "lax", secure
+
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     """Structured request logging: request_id, method, path, status_code, duration_ms (no PII)."""
@@ -466,13 +498,14 @@ async def login(request: LoginRequest):
             "message": "Login successful",
         }
     )
-    # Set HTTP-only cookie
+    # Set HTTP-only cookie (SameSite=None + Secure when CORS origins are set — Netlify + API split)
+    samesite_v, secure_v = session_cookie_flags()
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
         value=session_token,
         httponly=True,
-        secure=os.environ.get("AUTOAPPLYER_SECURE_COOKIES", "").lower() in ("1", "true", "yes"),
-        samesite="lax",
+        secure=secure_v,
+        samesite=samesite_v,
         max_age=7 * 24 * 60 * 60,  # 7 days
     )
     return response
@@ -482,7 +515,14 @@ async def login(request: LoginRequest):
 async def logout(current_user: Optional[User] = Depends(get_current_user_optional)):
     """Logout endpoint. Clears session cookie."""
     response = JSONResponse({"status": "success", "message": "Logout successful"})
-    response.delete_cookie(key=SESSION_COOKIE_NAME)
+    samesite_v, secure_v = session_cookie_flags()
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        path="/",
+        secure=secure_v,
+        httponly=True,
+        samesite=samesite_v,
+    )
     return response
 
 

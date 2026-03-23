@@ -8,18 +8,24 @@ A claimant-facing job search assistant that uses Playwright to drive a browser a
 
 ## Live demo
 
-**Your public SPA URL (edit this row after you deploy):**
+**Your public URL after deploy (edit this row):**
 
 | | |
 |--|--|
-| **Live app** | _Add your URL here, e.g._ `https://your-site.netlify.app` |
+| **Live app** | _Add your URL here_ — e.g. Render `https://jobflow.onrender.com` **or** Netlify `https://your-site.netlify.app` |
 
-### How to deploy and fill in the URL
+### Free hosting (steps 1–3 automated in-repo)
 
-1. **Backend (FastAPI)** — Run the API on a host you control (VPS, [Railway](https://railway.app), Fly.io, etc.). Follow **[`DEPLOYMENT.md`](DEPLOYMENT.md)** for environment variables, database, and process command (typically `uvicorn autoapply.server:app --host 0.0.0.0 --port $PORT`). Note the public **API base URL** (e.g. `https://api.yourdomain.com`).
-2. **Frontend (static SPA)** — On [Netlify](https://netlify.com): New site from Git → pick this repo → build **`npm run build`**, publish directory **`dist/`** (matches [`netlify.toml`](netlify.toml)). If the API is on another domain, add a Netlify **environment variable** `VITE_API_BASE_URL` with that API origin (no trailing slash), then trigger a new deploy.
-3. **CORS and cookies** — The browser must be allowed to call your API from your Netlify domain. Configure CORS and session cookie settings on the FastAPI app per **`DEPLOYMENT.md`** so sign-in works from the live SPA origin.
-4. **README** — Replace the placeholder in the table above with your real Netlify (or other) URL and commit.
+Follow **[`docs/DEPLOY_FREE.md`](docs/DEPLOY_FREE.md)**:
+
+- **Option A (simplest):** [Render](https://render.com) Blueprint using [`render.yaml`](render.yaml) + [`Dockerfile`](Dockerfile) — **one URL** serves API + React (no Netlify, no CORS setup).
+- **Option B:** Netlify (static) + Render (API): set `VITE_API_BASE_URL` on Netlify and `AUTOAPPLYER_CORS_ORIGINS` on the API (code supports credentials + `SameSite=None` cookies).
+
+You still need to **click through** Render/Netlify and connect GitHub; the repo supplies Docker, env defaults, seed-on-release, and CORS/cookie behaviour.
+
+### Other / production hosts
+
+VPS, Railway, Fly.io, etc.: see **[`DEPLOYMENT.md`](DEPLOYMENT.md)**.
 
 ## Screenshots
 

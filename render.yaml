@@ -1,0 +1,20 @@
+# Render Blueprint (free Web Service): https://render.com/docs/blueprint-spec
+# New → Blueprint → connect repo → apply this file.
+# After first deploy: open the service URL (one app: API + React from same origin).
+
+version: "1"
+services:
+  - type: web
+    name: jobflow
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    releaseCommand: python seed_users.py
+    envVars:
+      - key: AUTOAPPLYER_SECURE_COOKIES
+        value: "true"
+      - key: AUTOAPPLYER_SESSION_SECRET
+        generateValue: true
